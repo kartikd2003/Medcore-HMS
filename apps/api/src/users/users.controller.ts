@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
@@ -28,5 +28,13 @@ export class UsersController {
   @Delete(':id')
   deactivate(@CurrentUser() admin: AuthenticatedUser, @Param('id') id: string) {
     return this.usersService.deactivate(admin, id);
+  }
+
+  // A deliberate, separate decision from deactivate — see the
+  // service's comment. Not a symmetric toggle on one endpoint.
+  @Roles(Role.HOSPITAL_ADMIN)
+  @Patch(':id/activate')
+  activate(@CurrentUser() admin: AuthenticatedUser, @Param('id') id: string) {
+    return this.usersService.activate(admin, id);
   }
 }

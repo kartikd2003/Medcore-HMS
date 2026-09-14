@@ -6,6 +6,8 @@ import { ApiError } from '@/lib/api';
 import type { Appointment } from '@/lib/types';
 import { PageHeader, Card, EmptyState, LoadingBlock, ErrorNotice } from '@/components/PortalUI';
 import { StatusBadge } from '@/components/StatusBadge';
+import { LiveIndicator } from '@/components/LiveIndicator';
+import { useAppointmentEvents } from '@/lib/useAppointmentEvents';
 
 function todayLocalDate(): string {
   const d = new Date();
@@ -33,12 +35,20 @@ export default function NurseSchedulePage() {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     nurseApi
       .listQueue()
       .then(setAppointments)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load today's schedule."));
+  };
+
+  useEffect(() => {
+    load();
   }, []);
+
+  const { connected } = useAppointmentEvents(() => {
+    load();
+  });
 
   const today = todayLocalDate();
 
@@ -52,7 +62,10 @@ export default function NurseSchedulePage() {
 
   return (
     <main className="px-8 py-8 max-w-3xl">
-      <PageHeader title="Today's schedule" description="Appointments across the hospital, in order." />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="Today's schedule" description="Appointments across the hospital, in order." />
+        <LiveIndicator connected={connected} />
+      </div>
 
       {error && (
         <div className="mb-4">

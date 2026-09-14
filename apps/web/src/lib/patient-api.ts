@@ -7,6 +7,26 @@ import type {
 } from './types';
 
 /**
+ * Minimal shape from the public hospital directory (GET
+ * /hospitals/directory) — deliberately not the full Hospital type,
+ * since that endpoint only returns id/name/slug on purpose (no
+ * address/phone/status exposed with no authentication).
+ */
+export interface PublicHospital {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+/** Shape from GET /doctors?hospitalId= — a public directory entry, not the full Doctor record a doctor sees of themselves. */
+export interface PublicDoctor {
+  id: string;
+  specialty: string | null;
+  user: { firstName: string; lastName: string };
+  department: { name: string };
+}
+
+/**
  * A medical record as returned by GET /medical-records/mine — the
  * list endpoint includes the treating doctor but not the nested
  * prescription/lab orders (those come from GET /medical-records/:id,
@@ -75,6 +95,12 @@ export const patientApi = {
       method: 'PATCH',
       body: { status: 'CANCELLED' as AppointmentStatus },
     }),
+
+  // --- Booking directory (both public — no auth needed to browse) ---
+  listHospitals: () => apiRequest<PublicHospital[]>('/hospitals/directory', { public: true }),
+
+  listDoctors: (hospitalId: string) =>
+    apiRequest<PublicDoctor[]>(`/doctors?hospitalId=${hospitalId}`, { public: true }),
 
   // --- Doctors / slots (slot lookup is @Public but harmless to call authenticated) ---
   getSlots: (doctorId: string, date: string) =>

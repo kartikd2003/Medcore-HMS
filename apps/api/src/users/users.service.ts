@@ -59,11 +59,29 @@ export class UsersService {
   }
 
   async deactivate(admin: AuthenticatedUser, userId: string) {
+    const target = await this.getScopedTarget(admin, userId);
+    return this.prisma.user.update({ where: { id: userId }, data: { isActive: false } });
+  }
+
+  /**
+   * Reactivation — a deliberate, separate decision from deactivate,
+   * not a symmetric toggle exposed on the same endpoint. Scoped
+   * identically: only the hospital admin of the account's own
+   * hospital can flip it back on.
+   */
+  async activate(admin: AuthenticatedUser, userId: string) {
+    const target = await this.getScopedTarget(admin, userId);
+    return this.prisma.user.update({ where: { id: userId }, data: { isActive: true } });
+  }
+
+  private async getScopedTarget(admin: AuthenticatedUser, userId: string) {
     const target = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!target) throw new NotFoundException('User not found');
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
     if (admin.role !== Role.HOSPITAL_ADMIN || target.hospitalId !== admin.hospitalId) {
       throw new ForbiddenException('Cannot manage users outside your hospital');
     }
-    return this.prisma.user.update({ where: { id: userId }, data: { isActive: false } });
+    return target;
   }
 }

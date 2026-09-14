@@ -7,19 +7,18 @@ import { PayInvoiceDto } from './dto/pay-invoice.dto';
 
 const BILLING_ROLES: Role[] = [Role.RECEPTIONIST, Role.ACCOUNTANT, Role.HOSPITAL_ADMIN];
 
+// Shared include so listForHospital and findOne return the same
+// shape — patient name is what accountant-facing UI actually needs
+// to identify an invoice, which the query didn't surface before.
+const INVOICE_INCLUDE = {
+  items: true,
+  patient: { select: { user: { select: { firstName: true, lastName: true } } } },
+} as const;
+
 @Injectable()
 export class InvoicesService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Pulls together everything billable for one appointment: the
-   * consultation fee (entered by staff, see DTO comment), every
-   * dispensed prescription item at the medicine's unit price, and
-   * every approved lab order at the test's catalog price. Only
-   * dispensed items and approved results are billed — a prescribed-
-   * but-never-picked-up medicine or a still-pending lab result
-   * shouldn't appear on the bill.
-   */
   async generate(user: AuthenticatedUser, dto: GenerateInvoiceDto) {
     if (!BILLING_ROLES.includes(user.role) || !user.hospitalId) {
       throw new ForbiddenException('Only billing staff can generate an invoice');
@@ -87,7 +86,7 @@ export class InvoicesService {
     }
 
     const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
-    const tax = 0; // no per-hospital tax schedule yet — flagged the same way as the consultation fee gap
+    const tax = 0;
     const total = subtotal + tax;
 
     return this.prisma.invoice.create({
@@ -101,7 +100,7 @@ export class InvoicesService {
         total,
         items: { create: items },
       },
-      include: { items: true },
+      include: INVOICE_INCLUDE,
     });
   }
 
@@ -118,11 +117,12 @@ export class InvoicesService {
     return this.prisma.invoice.update({
       where: { id },
       data: { status: InvoiceStatus.PAID, paidAt: new Date(), paymentGatewayRef: dto.paymentGatewayRef },
+      include: INVOICE_INCLUDE,
     });
   }
 
   async findOne(user: AuthenticatedUser, id: string) {
-    const invoice = await this.prisma.invoice.findUnique({ where: { id }, include: { items: true } });
+    const invoice = await this.prisma.invoice.findUnique({ where: { id }, include: INVOICE_INCLUDE });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
     if (user.role === Role.PATIENT) {
@@ -143,7 +143,7 @@ export class InvoicesService {
     if (!patient) return [];
     return this.prisma.invoice.findMany({
       where: { patientId: patient.id },
-      include: { items: true },
+      include: INVOICE_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -154,7 +154,7 @@ export class InvoicesService {
     }
     return this.prisma.invoice.findMany({
       where: { hospitalId: user.hospitalId },
-      include: { items: true },
+      include: INVOICE_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
   }

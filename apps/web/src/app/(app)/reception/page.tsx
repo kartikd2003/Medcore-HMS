@@ -6,6 +6,8 @@ import { ApiError } from '@/lib/api';
 import type { Appointment } from '@/lib/types';
 import { PageHeader, Card, EmptyState, LoadingBlock, ErrorNotice } from '@/components/PortalUI';
 import { StatusBadge } from '@/components/StatusBadge';
+import { LiveIndicator } from '@/components/LiveIndicator';
+import { useAppointmentEvents } from '@/lib/useAppointmentEvents';
 
 function todayLocalDate(): string {
   const d = new Date();
@@ -39,6 +41,10 @@ export default function ReceptionSchedulePage() {
   useEffect(() => {
     load();
   }, []);
+
+  const { connected } = useAppointmentEvents(() => {
+    load();
+  });
 
   const handleTransition = async (id: string, status: Appointment['status']) => {
     setBusyId(id);
@@ -74,7 +80,10 @@ export default function ReceptionSchedulePage() {
 
   return (
     <main className="px-8 py-8 max-w-3xl">
-      <PageHeader title="Schedule" description="Every doctor's appointments for the selected day." />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="Schedule" description="Every doctor's appointments for the selected day." />
+        <LiveIndicator connected={connected} />
+      </div>
 
       <div className="flex items-center gap-3 mb-6">
         <input

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/auth-api';
 import { getAccessToken, getStoredUser, setStoredUser, setTokens, clearTokens } from '@/lib/api';
+import { disconnectRealtime } from '@/lib/realtime';
 import type { AuthUser } from '@/lib/types';
 
 interface AuthContextValue {
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await authApi.logout().catch(() => clearTokens()); // logout still clears locally even if the network call fails
+    disconnectRealtime(); // don't leave an authenticated socket connected after sign-out
     setUser(null);
     router.push('/login');
   }, [router]);

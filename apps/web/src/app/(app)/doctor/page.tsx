@@ -8,6 +8,8 @@ import type { Appointment } from '@/lib/types';
 import { formatDateTime } from '@/lib/format';
 import { PageHeader, Card, EmptyState, LoadingBlock, ErrorNotice } from '@/components/PortalUI';
 import { StatusBadge } from '@/components/StatusBadge';
+import { LiveIndicator } from '@/components/LiveIndicator';
+import { useAppointmentEvents } from '@/lib/useAppointmentEvents';
 
 function isToday(iso: string): boolean {
   const d = new Date(iso);
@@ -36,6 +38,15 @@ export default function DoctorQueuePage() {
     load();
   }, []);
 
+  // Live updates: any appointment created/status-changed anywhere in
+  // the hospital re-fetches this doctor's queue. Not filtered to just
+  // this doctor's own appointments client-side — the backend gateway
+  // broadcasts hospital-wide, so a silent refetch is simpler and just
+  // as correct as maintaining a parallel client-side filter.
+  const { connected } = useAppointmentEvents(() => {
+    load();
+  });
+
   const handleTransition = async (id: string, status: Appointment['status']) => {
     setBusyId(id);
     setError(null);
@@ -57,12 +68,15 @@ export default function DoctorQueuePage() {
     <main className="px-8 py-8 max-w-3xl">
       <div className="flex items-start justify-between gap-4">
         <PageHeader title="Today's queue" description="Your appointments, in order." />
-        <button
-          onClick={() => setShowAll((v) => !v)}
-          className="shrink-0 text-sm text-sage-600 hover:text-sage-700"
-        >
-          {showAll ? 'Show today only' : 'Show all upcoming'}
-        </button>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <LiveIndicator connected={connected} />
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="text-sm text-sage-600 hover:text-sage-700"
+          >
+            {showAll ? 'Show today only' : 'Show all upcoming'}
+          </button>
+        </div>
       </div>
 
       {error && (
